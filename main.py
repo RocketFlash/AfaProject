@@ -10,6 +10,7 @@ import ctypes
 import _ctypes
 import pygame
 import sys
+import math
 
 if sys.hexversion >= 0x03000000:
     import _thread as thread
@@ -58,8 +59,8 @@ class BodyGameRuntime(object):
         self._bodies = None
 
     def draw_body_bone(self, joints, jointPoints, color, joint0, joint1):
-        joint0State = joints[joint0].TrackingState;
-        joint1State = joints[joint1].TrackingState;
+        joint0State = joints[joint0].TrackingState
+        joint1State = joints[joint1].TrackingState
 
         # both joints are not tracked
         if (joint0State == PyKinectV2.TrackingState_NotTracked) or (joint1State == PyKinectV2.TrackingState_NotTracked):
@@ -144,7 +145,7 @@ class BodyGameRuntime(object):
                     self._screen = pygame.display.set_mode(event.dict['size'],
                                                            pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.RESIZABLE, 32)
 
-            # --- Game logic should go here
+
 
             # --- Getting frames and drawing
             # --- Woohoo! We've got a color frame! Let's fill out back buffer surface with frame's data
@@ -168,7 +169,7 @@ class BodyGameRuntime(object):
                     # convert joint coordinates to color space
                     joint_points = self._kinect.body_joints_to_color_space(joints)
                     self.draw_body(joints, joint_points, SKELETON_COLORS[i])
-
+                    print self.get_height(joints)
             # --- copy back buffer surface pixels to the screen, resize it if needed and keep aspect ratio
             # --- (screen size may be different from Kinect's color frame size)
             h_to_w = float(self._frame_surface.get_height()) / self._frame_surface.get_width()
@@ -188,9 +189,60 @@ class BodyGameRuntime(object):
         self._kinect.close()
         pygame.quit()
 
-    def get_height(self):
+    # get length of a link between joint0 & joint1
+    def get_length(self, joints, joint0, joint1):
+        x1 = joints[joint0].Position.x
+        y1 = joints[joint0].Position.y
+        z1 = joints[joint0].Position.z
+        x2 = joints[joint1].Position.x
+        y2 = joints[joint1].Position.y
+        z2 = joints[joint1].Position.z
+        len = ((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2) ** 0.5
+        return len
 
-        pass
+    # get heigh of a person
+    def get_height(self, joints):
+        l1 = self.get_length(joints, PyKinectV2.JointType_Head, PyKinectV2.JointType_Neck)
+        l2 = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_Neck)
+        l3 = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_SpineMid)
+        l4 = self.get_length(joints, PyKinectV2.JointType_SpineBase, PyKinectV2.JointType_SpineMid)
+        leg11 = self.get_length(joints, PyKinectV2.JointType_HipLeft, PyKinectV2.JointType_KneeLeft)
+        leg21 = self.get_length(joints, PyKinectV2.JointType_HipRight, PyKinectV2.JointType_KneeRight)
+        leg12 = self.get_length(joints, PyKinectV2.JointType_AnkleLeft, PyKinectV2.JointType_KneeLeft)
+        leg22 = self.get_length(joints, PyKinectV2.JointType_AnkleRight, PyKinectV2.JointType_KneeRight)
+        l5 = (leg11 + leg12 + leg21 + leg22) / 2
+        height = l1 + l2 + l3 + l4 + l5 + 0.25
+        return height
+
+    # get angle between two links
+    #          joint1
+    #         /
+    #   joint0
+    #         \
+    #          joint2
+    def get_angle(self, joints, joint0, joint1, joint2):
+        x0 = joints[joint0].Position.x
+        y0 = joints[joint0].Position.y
+        z0 = joints[joint0].Position.z
+        x1 = joints[joint1].Position.x
+        y1 = joints[joint1].Position.y
+        z1 = joints[joint1].Position.z
+        x2 = joints[joint2].Position.x
+        y2 = joints[joint2].Position.y
+        z2 = joints[joint2].Position.z
+
+        xd1 = x1 - x0
+        yd1 = y1 - y0
+        zd1 = z1 - z0
+
+        xd2 = x2 - x0
+        yd2 = y2 - y0
+        zd2 = z2 - z0
+
+        cosphi = (xd1 * xd2 + yd1 * yd2 + zd1 * zd2) / (
+        (xd1 ** 2 + yd1 ** 2 + zd1 ** 2) ** 0.5 * (xd2 ** 2 + yd2 ** 2 + zd2 ** 2) ** 0.5)
+        phi = math.acos(cosphi)
+        return phi
 
 
 __main__ = "Kinect v2"
