@@ -6,6 +6,7 @@ from pykinect2 import PyKinectV2
 from pykinect2.PyKinectV2 import *
 from pykinect2 import PyKinectRuntime
 
+import pandas as pd
 import ctypes
 import _ctypes
 import pygame
@@ -134,6 +135,7 @@ class BodyGameRuntime(object):
         target_surface.unlock()
 
     def run(self):
+        columns = ['SB','SM','Nk','Hd','SL','EL','WL','HL','SR','ER','WR','HR','HiL','KL','AL','FL','HiR','KR','AR','FR','SS','HTL','TL','HTR','TR','Cnt']
         # -------- Main Program Loop -----------
         while not self._done:
             # --- Main event loop
@@ -169,7 +171,7 @@ class BodyGameRuntime(object):
                     # convert joint coordinates to color space
                     joint_points = self._kinect.body_joints_to_color_space(joints)
                     self.draw_body(joints, joint_points, SKELETON_COLORS[i])
-                    print self.get_height(joints)
+                    print(self.get_all_lengths(joints[0]))
             # --- copy back buffer surface pixels to the screen, resize it if needed and keep aspect ratio
             # --- (screen size may be different from Kinect's color frame size)
             h_to_w = float(self._frame_surface.get_height()) / self._frame_surface.get_width()
@@ -189,6 +191,10 @@ class BodyGameRuntime(object):
         self._kinect.close()
         pygame.quit()
 
+    def get_coordinates(self,joints,joi):
+        coord = [joints[joi].Position.x, joints[joi].Position.y, joints[joi].Position.z]
+        return coord
+
     # get length of a link between joint0 & joint1
     def get_length(self, joints, joint0, joint1):
         x1 = joints[joint0].Position.x
@@ -200,19 +206,33 @@ class BodyGameRuntime(object):
         len = ((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2) ** 0.5
         return len
 
-    # get heigh of a person
-    def get_height(self, joints):
-        l1 = self.get_length(joints, PyKinectV2.JointType_Head, PyKinectV2.JointType_Neck)
-        l2 = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_Neck)
-        l3 = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_SpineMid)
-        l4 = self.get_length(joints, PyKinectV2.JointType_SpineBase, PyKinectV2.JointType_SpineMid)
-        leg11 = self.get_length(joints, PyKinectV2.JointType_HipLeft, PyKinectV2.JointType_KneeLeft)
-        leg21 = self.get_length(joints, PyKinectV2.JointType_HipRight, PyKinectV2.JointType_KneeRight)
-        leg12 = self.get_length(joints, PyKinectV2.JointType_AnkleLeft, PyKinectV2.JointType_KneeLeft)
-        leg22 = self.get_length(joints, PyKinectV2.JointType_AnkleRight, PyKinectV2.JointType_KneeRight)
-        l5 = (leg11 + leg12 + leg21 + leg22) / 2
-        height = l1 + l2 + l3 + l4 + l5 + 0.25
-        return height
+    # get heigh of a person and all links length
+    def get_all_lengths(self, joints):
+        l = [0 for i in range(19)]
+        l[1] = self.get_length(joints, PyKinectV2.JointType_Head, PyKinectV2.JointType_Neck)
+        l[2] = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_Neck)
+        l[3] = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_ShoulderLeft)
+        l[4] = self.get_length(joints, PyKinectV2.JointType_ShoulderLeft, PyKinectV2.JointType_ElbowLeft)
+        l[5] = self.get_length(joints, PyKinectV2.JointType_ElbowLeft, PyKinectV2.JointType_WristLeft)
+        l[6] = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_ShoulderRight)
+        l[7] = self.get_length(joints, PyKinectV2.JointType_ShoulderLeft, PyKinectV2.JointType_ElbowRight)
+        l[8] = self.get_length(joints, PyKinectV2.JointType_ElbowLeft, PyKinectV2.JointType_WristRight)
+        l[9] = self.get_length(joints, PyKinectV2.JointType_SpineShoulder, PyKinectV2.JointType_SpineMid)
+        l[10] = self.get_length(joints, PyKinectV2.JointType_SpineMid, PyKinectV2.JointType_SpineBase)
+        l[11] = self.get_length(joints, PyKinectV2.JointType_HipLeft, PyKinectV2.JointType_SpineBase)
+        l[12] = self.get_length(joints, PyKinectV2.JointType_HipLeft, PyKinectV2.JointType_KneeLeft)
+        l[13] = self.get_length(joints, PyKinectV2.JointType_AnkleLeft, PyKinectV2.JointType_KneeLeft)
+        l[14] = self.get_length(joints, PyKinectV2.JointType_HipRight, PyKinectV2.JointType_SpineBase)
+        l[15] = self.get_length(joints, PyKinectV2.JointType_HipRight, PyKinectV2.JointType_KneeRight)
+        l[16] = self.get_length(joints, PyKinectV2.JointType_AnkleRight, PyKinectV2.JointType_KneeRight)
+        l[17] = self.get_length(joints, PyKinectV2.JointType_AnkleLeft, PyKinectV2.JointType_FootLeft)
+        l[18] = self.get_length(joints, PyKinectV2.JointType_AnkleRight, PyKinectV2.JointType_FootRight)
+        # average legs length
+        avleg = (l[12] + l[13] + l[15] + l[16]) / 2
+        # height
+        l[0] = l[1] + l[2] + l[9] + l[10] + avleg + 0.25
+        return l
+
 
     # get angle between two links
     #          joint1
@@ -243,6 +263,16 @@ class BodyGameRuntime(object):
         (xd1 ** 2 + yd1 ** 2 + zd1 ** 2) ** 0.5 * (xd2 ** 2 + yd2 ** 2 + zd2 ** 2) ** 0.5)
         phi = math.acos(cosphi)
         return phi
+
+    def recordData(self, joints, dataF, clm):
+        a = [[0 for i in range(3)] for i in range(25)]
+
+        for j in range(0,len(joints)):
+            a[j] = self.get_coordinates(joints, j)
+
+        df = pd.DataFrame(a, columns=clm)
+        dataF.append(df, ignore_index=True)
+        return
 
 
 __main__ = "Kinect v2"
