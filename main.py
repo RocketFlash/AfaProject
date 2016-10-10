@@ -12,6 +12,7 @@ import _ctypes
 import pygame
 import sys
 import math
+import numpy as np
 
 if sys.hexversion >= 0x03000000:
     import _thread as thread
@@ -135,7 +136,10 @@ class BodyGameRuntime(object):
         target_surface.unlock()
 
     def run(self):
-        columns = ['SB','SM','Nk','Hd','SL','EL','WL','HL','SR','ER','WR','HR','HiL','KL','AL','FL','HiR','KR','AR','FR','SS','HTL','TL','HTR','TR','Cnt']
+        columns = ['SB', 'SM', 'Nk', 'Hd', 'SL', 'EL', 'WL', 'HL', 'SR', 'ER', 'WR', 'HR', 'HiL', 'KL', 'AL', 'FL',
+                   'HiR', 'KR', 'AR', 'FR', 'SS', 'HTL', 'TL', 'HTR', 'TR']
+        # a = np.array([[0 for i in range(25)] for i in range(3)])
+        dataF = pd.DataFrame(columns=columns)
         # -------- Main Program Loop -----------
         while not self._done:
             # --- Main event loop
@@ -171,7 +175,9 @@ class BodyGameRuntime(object):
                     # convert joint coordinates to color space
                     joint_points = self._kinect.body_joints_to_color_space(joints)
                     self.draw_body(joints, joint_points, SKELETON_COLORS[i])
-                    print(self.get_all_lengths(joints[0]))
+                    df = self.recordData(joints, dataF, columns)
+                    dataF = dataF.append(df, ignore_index=True)
+                    # print(self.get_all_lengths(joints)[0])
             # --- copy back buffer surface pixels to the screen, resize it if needed and keep aspect ratio
             # --- (screen size may be different from Kinect's color frame size)
             h_to_w = float(self._frame_surface.get_height()) / self._frame_surface.get_width()
@@ -180,7 +186,7 @@ class BodyGameRuntime(object):
             self._screen.blit(surface_to_draw, (0, 0))
             surface_to_draw = None
             pygame.display.update()
-
+            dataF.to_csv('test.csv', sep='\t', float_format='%.6f')
             # --- Go ahead and update the screen with what we've drawn.
             pygame.display.flip()
 
@@ -188,12 +194,15 @@ class BodyGameRuntime(object):
             self._clock.tick(60)
 
         # Close our Kinect sensor, close the window and quit.
+        # dataFrame.to_csv('test.csv', sep='\t')
         self._kinect.close()
         pygame.quit()
 
+    # returns coordinates of the joint
     def get_coordinates(self,joints,joi):
-        coord = [joints[joi].Position.x, joints[joi].Position.y, joints[joi].Position.z]
+        coord = np.array([joints[joi].Position.x, joints[joi].Position.y, joints[joi].Position.z])
         return coord
+
 
     # get length of a link between joint0 & joint1
     def get_length(self, joints, joint0, joint1):
@@ -264,15 +273,20 @@ class BodyGameRuntime(object):
         phi = math.acos(cosphi)
         return phi
 
+    # record all the points from tracked skeleton
+    # Format:
+    #   joint1  joint2  joint3  ... jointN
+    #   x       x       x           x
+    #   y       y       y           y
+    #   z       z       z           z
     def recordData(self, joints, dataF, clm):
-        a = [[0 for i in range(3)] for i in range(25)]
+        a = np.array([[0.0 for i in range(25)] for i in range(3)])
 
-        for j in range(0,len(joints)):
-            a[j] = self.get_coordinates(joints, j)
+        for j in range(0, 25):
+            a[:, j] = self.get_coordinates(joints, j).T
 
         df = pd.DataFrame(a, columns=clm)
-        dataF.append(df, ignore_index=True)
-        return
+        return df
 
 
 __main__ = "Kinect v2"
