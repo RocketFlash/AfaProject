@@ -88,7 +88,7 @@ def get_angle(joints, joint0, joint1, joint2):
 
 columns = ['SB', 'SM', 'Nk', 'Hd', 'SL', 'EL', 'WL', 'HL', 'SR', 'ER', 'WR', 'HR', 'HiL', 'KL', 'AL', 'FL', 'HiR', 'KR',
            'AR', 'FR', 'SS', 'HTL', 'TL', 'HTR', 'TR']
-df = pd.read_csv('test.csv', sep='\t')
+df = pd.read_csv('Yulia_4.csv', sep='\t')
 s = int(df.shape[0] / 3)
 for i in range(0, s):
     joints = df[3 * i:3 * i + 3].as_matrix(columns=columns)

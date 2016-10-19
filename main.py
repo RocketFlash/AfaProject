@@ -186,7 +186,7 @@ class BodyGameRuntime(object):
             self._screen.blit(surface_to_draw, (0, 0))
             surface_to_draw = None
             pygame.display.update()
-            dataF.to_csv('test.csv', sep='\t', float_format='%.6f')
+            dataF.to_csv('Roma_1_8.csv', sep='\t', float_format='%.6f')
             # --- Go ahead and update the screen with what we've drawn.
             pygame.display.flip()
 
